@@ -1,44 +1,53 @@
-import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from "./docx.min.js";
+const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } = docx;
 
 const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("mdFile");
 const preview = document.getElementById("preview");
+const convertBtn = document.getElementById("convertBtn");
+
+let mdText = "";
 
 dropZone.addEventListener("click", () => fileInput.click());
-dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.style.borderColor = "#0a0"; });
-dropZone.addEventListener("dragleave", (e) => { e.preventDefault(); dropZone.style.borderColor = "#aaa"; });
-dropZone.addEventListener("drop", (e) => {
+
+dropZone.addEventListener("dragover", e => {
+    e.preventDefault();
+    dropZone.style.borderColor = "#0a0";
+});
+
+dropZone.addEventListener("dragleave", e => {
+    e.preventDefault();
+    dropZone.style.borderColor = "#aaa";
+});
+
+dropZone.addEventListener("drop", e => {
     e.preventDefault();
     dropZone.style.borderColor = "#aaa";
     if (e.dataTransfer.files.length > 0) {
         fileInput.files = e.dataTransfer.files;
-        previewFile(fileInput.files[0]);
+        readFile(fileInput.files[0]);
     }
 });
 
 fileInput.addEventListener("change", () => {
-    if (fileInput.files.length > 0) previewFile(fileInput.files[0]);
+    if (fileInput.files.length > 0) readFile(fileInput.files[0]);
 });
 
-function previewFile(file) {
-    file.text().then(text => { preview.textContent = text; });
+function readFile(file) {
+    file.text().then(text => {
+        mdText = text;
+        preview.textContent = mdText;
+    });
 }
 
 function numToChinese(num) {
-    const chinese = "一二三四五六七八九十";
-    return num <= 10 ? chinese[num - 1] : num.toString();
+    const c = "一二三四五六七八九十";
+    return num <= 10 ? c[num - 1] : num.toString();
 }
 
-export async function convert() {
-    if (!fileInput.files.length) {
-        alert("请先上传 Markdown 文件");
-        return;
-    }
+convertBtn.addEventListener("click", async () => {
+    if (!mdText) { alert("请先上传 Markdown 文件"); return; }
 
-    const file = fileInput.files[0];
-    const text = await file.text();
-    const lines = text.split("\n");
-
+    const lines = mdText.split("\n");
     const lineSpacing = parseFloat(document.getElementById("lineSpacing").value) || 28;
     const titleSize = parseInt(document.getElementById("titleSize").value) || 32;
     const bodySize = parseInt(document.getElementById("bodySize").value) || 32;
@@ -52,8 +61,7 @@ export async function convert() {
         }]
     });
 
-    let level1 = 0, level2 = 0, level3 = 0, level4 = 0;
-    let signature = null;
+    let level1 = 0, level2 = 0, level3 = 0, level4 = 0, signature = null;
 
     lines.forEach(line => {
         line = line.trim();
@@ -91,15 +99,12 @@ export async function convert() {
         }
 
         const run = new TextRun({ text: paraText, font: fontName, size: fontSize });
-
-        // 英文数字自动 Times New Roman
-        run.text = run.text.replace(/[A-Za-z0-9]+/g, match => match);
+        run.text = run.text.replace(/[A-Za-z0-9]+/g, match => match); // 英文数字 Times New Roman 默认
 
         const para = new Paragraph({ ...paraProps, children: [run] });
         doc.sections[0].children.push(para);
     });
 
-    // 落款
     if (signature) {
         doc.sections[0].children.push(new Paragraph({ text: "", spacing: { line: lineSpacing * 20 } }));
         doc.sections[0].children.push(new Paragraph({ text: "", spacing: { line: lineSpacing * 20 } }));
@@ -113,4 +118,4 @@ export async function convert() {
     link.href = URL.createObjectURL(blob);
     link.download = "output.docx";
     link.click();
-}
+});
