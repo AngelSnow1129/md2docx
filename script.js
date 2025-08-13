@@ -1,43 +1,21 @@
 const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } = docx;
 
-const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("mdFile");
 const preview = document.getElementById("preview");
 const convertBtn = document.getElementById("convertBtn");
 
 let mdText = "";
 
-dropZone.addEventListener("click", () => fileInput.click());
-
-dropZone.addEventListener("dragover", e => {
-    e.preventDefault();
-    dropZone.style.borderColor = "#0a0";
-});
-
-dropZone.addEventListener("dragleave", e => {
-    e.preventDefault();
-    dropZone.style.borderColor = "#aaa";
-});
-
-dropZone.addEventListener("drop", e => {
-    e.preventDefault();
-    dropZone.style.borderColor = "#aaa";
-    if (e.dataTransfer.files.length > 0) {
-        fileInput.files = e.dataTransfer.files;
-        readFile(fileInput.files[0]);
+// 上传文件事件
+fileInput.addEventListener("change", () => {
+    if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        file.text().then(text => {
+            mdText = text;
+            preview.textContent = mdText;
+        });
     }
 });
-
-fileInput.addEventListener("change", () => {
-    if (fileInput.files.length > 0) readFile(fileInput.files[0]);
-});
-
-function readFile(file) {
-    file.text().then(text => {
-        mdText = text;
-        preview.textContent = mdText;
-    });
-}
 
 function numToChinese(num) {
     const c = "一二三四五六七八九十";
@@ -55,13 +33,13 @@ convertBtn.addEventListener("click", async () => {
     const doc = new Document({
         sections: [{
             properties: {
-                page: { margin: { top: 37 * 2.835, bottom: 35 * 2.835, left: 28 * 2.835, right: 22 * 2.835 } }
+                page: { margin: { top: 37*2.835, bottom: 35*2.835, left: 28*2.835, right: 22*2.835 } }
             },
             children: []
         }]
     });
 
-    let level1 = 0, level2 = 0, level3 = 0, level4 = 0, signature = null;
+    let level1=0, level2=0, level3=0, level4=0, signature=null;
 
     lines.forEach(line => {
         line = line.trim();
@@ -73,43 +51,27 @@ convertBtn.addEventListener("click", async () => {
         }
 
         let paraText = line;
-        let paraProps = { spacing: { line: lineSpacing * 20 }, alignment: AlignmentType.LEFT };
+        let paraProps = { spacing: { line: lineSpacing*20 }, alignment: AlignmentType.LEFT };
         let fontSize = bodySize;
         let fontName = "仿宋";
 
-        if (line.startsWith("# ")) {
-            level1++; level2 = level3 = level4 = 0;
-            paraText = `${numToChinese(level1)}、${line.slice(2)}`;
-            paraProps.heading = HeadingLevel.HEADING_1;
-            fontSize = titleSize;
-        } else if (line.startsWith("## ")) {
-            level2++; level3 = level4 = 0;
-            paraText = `（${String.fromCharCode(0x2460 + level2 - 1)}）${line.slice(3)}`;
-            paraProps.heading = HeadingLevel.HEADING_2;
-            fontSize = titleSize;
-        } else if (line.startsWith("### ")) {
-            level3++; level4 = 0;
-            paraText = `${level3}. ${line.slice(4)}`;
-            paraProps.heading = HeadingLevel.HEADING_3;
-            fontSize = titleSize;
-        } else if (line.startsWith("#### ")) {
-            level4++;
-            paraText = `（${level4}）${line.slice(5)}`;
-            fontSize = titleSize;
-        }
+        if (line.startsWith("# ")) { level1++; level2=level3=level4=0; paraText=`${numToChinese(level1)}、${line.slice(2)}`; paraProps.heading=HeadingLevel.HEADING_1; fontSize=titleSize; }
+        else if (line.startsWith("## ")) { level2++; level3=level4=0; paraText=`（${String.fromCharCode(0x2460+level2-1)}）${line.slice(3)}`; paraProps.heading=HeadingLevel.HEADING_2; fontSize=titleSize; }
+        else if (line.startsWith("### ")) { level3++; level4=0; paraText=`${level3}. ${line.slice(4)}`; paraProps.heading=HeadingLevel.HEADING_3; fontSize=titleSize; }
+        else if (line.startsWith("#### ")) { level4++; paraText=`（${level4}）${line.slice(5)}`; fontSize=titleSize; }
 
         const run = new TextRun({ text: paraText, font: fontName, size: fontSize });
-        run.text = run.text.replace(/[A-Za-z0-9]+/g, match => match); // 英文数字 Times New Roman 默认
+        run.text = run.text.replace(/[A-Za-z0-9]+/g, match => match); // 英文数字 Times New Roman
 
         const para = new Paragraph({ ...paraProps, children: [run] });
         doc.sections[0].children.push(para);
     });
 
     if (signature) {
-        doc.sections[0].children.push(new Paragraph({ text: "", spacing: { line: lineSpacing * 20 } }));
-        doc.sections[0].children.push(new Paragraph({ text: "", spacing: { line: lineSpacing * 20 } }));
-        const sigRun = new TextRun({ text: signature, font: "仿宋", size: bodySize });
-        const sigPara = new Paragraph({ text: signature, alignment: AlignmentType.RIGHT, spacing: { line: lineSpacing * 20 }, children: [sigRun] });
+        doc.sections[0].children.push(new Paragraph({ text:"", spacing:{line: lineSpacing*20} }));
+        doc.sections[0].children.push(new Paragraph({ text:"", spacing:{line: lineSpacing*20} }));
+        const sigRun = new TextRun({ text: signature, font:"仿宋", size: bodySize });
+        const sigPara = new Paragraph({ text: signature, alignment: AlignmentType.RIGHT, spacing: { line: lineSpacing*20 }, children: [sigRun] });
         doc.sections[0].children.push(sigPara);
     }
 
