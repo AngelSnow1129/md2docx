@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const downloadFontsBtn = document.getElementById('download-fonts-btn'); // 新增：获取字体下载按钮
     let markdownText = "";
 
-    fetch('sample.md').then(res => res.ok ? res.text() : "").then(text => {
+    fetch('README.md').then(res => res.ok ? res.text() : "").then(text => {
         mdInput.value = text;
         markdownText = text;
     }).catch(console.warn);
@@ -39,6 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 新增：字体下载按钮点击事件 ---
     downloadFontsBtn.addEventListener('click', () => {
         const fontZipUrl = 'https://github.com/AngelSnow1129/md2docx/releases/download/V1.0.0/default.zip';
+        // https://github.com/AngelSnow1129/md2docx/releases/latest
         window.open(fontZipUrl, '_blank');
         console.log(`正在尝试从以下地址下载字体包: ${fontZipUrl}`);
     });
