@@ -5,17 +5,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel, convertInchesToTwip, convertMillimetersToTwip, LineRuleType, Numbering, Indent } = docx;
+    const { Document, Packer, Paragraph, TextRun, AlignmentType, convertMillimetersToTwip, LineRuleType } = docx;
 
     // --- 1. 获取所有 DOM 元素 ---
     const mdInput = document.getElementById('md-input');
     const convertBtn = document.getElementById('convert-btn');
     const mdUpload = document.getElementById('md-upload');
-    const autoNumberingCheckbox = document.getElementById('auto-numbering');
+    // 移除了 autoNumberingCheckbox 的引用
     const downloadFontsBtn = document.getElementById('download-fonts-btn');
 
     // --- 2. 加载默认/示例 Markdown ---
-    // 恢复加载 README.md 以匹配旧版行为
     fetch('README.md')
         .then(res => {
             if (!res.ok) throw new Error(`无法加载默认文件 README.md, 状态: ${res.status}`);
@@ -41,7 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 字体下载功能
     downloadFontsBtn.addEventListener('click', () => {
-        // 使用旧脚本中的 URL
         const fontZipUrl = 'https://github.com/AngelSnow1129/md2docx/releases/download/V1.0.0/default.zip';
         window.open(fontZipUrl, '_blank');
         console.log(`正在尝试从以下地址下载字体包: ${fontZipUrl}`);
@@ -54,12 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('内容不能为空，请输入或上传 Markdown 文本！');
             return;
         }
-        // 将复选框的状态传递给生成函数
-        generateDocx(markdownText, autoNumberingCheckbox.checked);
+        // 不再需要传递复选框状态
+        generateDocx(markdownText);
     });
 
-    // --- 4. 核心 DOCX 生成函数 (融合版) ---
-    function generateDocx(mdText, enableAutoNumbering) {
+    // --- 4. 核心 DOCX 生成函数 (修改版) ---
+    function generateDocx(mdText) {
         // 定义字体和字号 (pt)
         const FONT_FANGSONG_GB2312 = "仿宋_GB2312";
         const FONT_XIAOBIAOSONG = "方正小标宋简体";
@@ -70,18 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const SIZE_H_COMMON = 16 * 2; // 三号 (16pt)
         const SIZE_BODY = 16 * 2; // 三号 (16pt)
 
-        // 定义自动编号规则
-        const numbering = new Numbering({
-            config: [{
-                reference: "gongwen-numbering",
-                levels: [
-                    { level: 0, format: "chineseCounting", text: "%1、", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { firstLine: convertInchesToTwip(0.44) } }, run: { font: FONT_HEITI, size: SIZE_H_COMMON } } },
-                    { level: 1, format: "chineseCounting", text: "（%2）", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { firstLine: convertInchesToTwip(0.44) } }, run: { font: FONT_KAITI_GB2312, size: SIZE_H_COMMON } } },
-                    { level: 2, format: "decimal", text: "%3.", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { firstLine: convertInchesToTwip(0.44) } }, run: { font: FONT_FANGSONG_GB2312, size: SIZE_H_COMMON, bold: true } } },
-                    { level: 3, format: "decimal", text: "（%4）", alignment: AlignmentType.LEFT, style: { paragraph: { indent: { firstLine: convertInchesToTwip(0.44) } }, run: { font: FONT_FANGSONG_GB2312, size: SIZE_H_COMMON } } },
-                ],
-            }],
-        });
+        // 移除了自动编号 (Numbering) 的定义
 
         const tokens = marked.lexer(mdText);
         const docChildren = [];
@@ -91,30 +78,40 @@ document.addEventListener('DOMContentLoaded', () => {
             switch (token.type) {
                 case 'heading':
                     const textWithoutFormatting = token.text;
-                    let headingProperties = { text: textWithoutFormatting };
+                    let textRun;
 
-                    // 根据复选框状态决定是否应用编号
-                    if (enableAutoNumbering) {
-                        const levelMap = { 2: 0, 3: 1, 4: 2, 5: 3 };
-                        if (levelMap[token.depth] !== undefined) {
-                            headingProperties.numbering = { reference: "gongwen-numbering", level: levelMap[token.depth] };
-                        }
+                    switch (token.depth) {
+                        case 1: // 主标题
+                            paragraph = new Paragraph({
+                                children: [new TextRun({ text: textWithoutFormatting, font: FONT_XIAOBIAOSONG, size: SIZE_H1 })],
+                                alignment: AlignmentType.CENTER,
+                                // 移除了 spacing.after，行距为 30pt 固定值
+                                spacing: { line: 30 * 20, lineRule: LineRuleType.EXACT },
+                            });
+                            break;
+                        case 2: // 一级标题
+                            textRun = new TextRun({ text: textWithoutFormatting, font: FONT_HEITI, size: SIZE_H_COMMON });
+                            break;
+                        case 3: // 二级标题
+                            textRun = new TextRun({ text: textWithoutFormatting, font: FONT_KAITI_GB2312, size: SIZE_H_COMMON });
+                            break;
+                        case 4: // 三级标题
+                            textRun = new TextRun({ text: textWithoutFormatting, font: FONT_FANGSONG_GB2312, size: SIZE_H_COMMON, bold: true });
+                            break;
+                        case 5: // 四级标题
+                            textRun = new TextRun({ text: textWithoutFormatting, font: FONT_FANGSONG_GB2312, size: SIZE_H_COMMON });
+                            break;
                     }
                     
-                    // 为标题应用基础样式
-                    const styleMap = { 2: "h2", 3: "h3", 4: "h4", 5: "h5" };
-                    if (styleMap[token.depth]) {
-                        headingProperties.style = styleMap[token.depth];
-                    }
-
-                    if (token.depth === 1) { // 主标题特殊处理
+                    // 为 H2-H5 创建段落
+                    if (token.depth > 1 && textRun) {
                         paragraph = new Paragraph({
-                            children: [new TextRun({ text: textWithoutFormatting, font: FONT_XIAOBIAOSONG, size: SIZE_H1 })],
-                            alignment: AlignmentType.CENTER,
-                            spacing: { line: 30 * 20, lineRule: LineRuleType.EXACT, after: 16 * 20 },
+                            children: [textRun],
+                            // 所有内文标题与正文共享相同的缩进和行距设置
+                            alignment: AlignmentType.JUSTIFIED,
+                            indent: { firstLine: 640 }, // 2字符缩进
+                            spacing: { line: 28 * 20, lineRule: LineRuleType.EXACT },
                         });
-                    } else {
-                        paragraph = new Paragraph(headingProperties);
                     }
                     break;
 
@@ -147,15 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 创建文档
         const doc = new Document({
-            numbering: numbering,
-            styles: {
-                paragraphStyles: [
-                    { id: "h2", name: "Heading 2", run: { font: FONT_HEITI, size: SIZE_H_COMMON }, paragraph: { spacing: { line: 28 * 20, lineRule: LineRuleType.EXACT }, indent: { firstLine: convertInchesToTwip(0.44) } } },
-                    { id: "h3", name: "Heading 3", run: { font: FONT_KAITI_GB2312, size: SIZE_H_COMMON }, paragraph: { spacing: { line: 28 * 20, lineRule: LineRuleType.EXACT }, indent: { firstLine: convertInchesToTwip(0.44) } } },
-                    { id: "h4", name: "Heading 4", run: { font: FONT_FANGSONG_GB2312, size: SIZE_H_COMMON, bold: true }, paragraph: { spacing: { line: 28 * 20, lineRule: LineRuleType.EXACT }, indent: { firstLine: convertInchesToTwip(0.44) } } },
-                    { id: "h5", name: "Heading 5", run: { font: FONT_FANGSONG_GB2312, size: SIZE_H_COMMON }, paragraph: { spacing: { line: 28 * 20, lineRule: LineRuleType.EXACT }, indent: { firstLine: convertInchesToTwip(0.44) } } },
-                ]
-            },
+            // 移除了 numbering 和 styles.paragraphStyles
             sections: [{
                 properties: {
                     page: {
