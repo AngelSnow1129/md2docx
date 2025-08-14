@@ -10,13 +10,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const convertBtn = document.getElementById('convert-btn');
     const mdUpload = document.getElementById('md-upload');
     const autoNumberingCheckbox = document.getElementById('auto-numbering');
-    const downloadFontsBtn = document.getElementById('download-fonts-btn'); // 新增：获取字体下载按钮
+    const downloadFontsBtn = document.getElementById('download-fonts-btn');
     let markdownText = "";
 
-    fetch('README.md').then(res => res.ok ? res.text() : "").then(text => {
+    fetch('README.md').then(res => {
+        if (!res.ok) {
+            throw new Error(`无法加载默认文件 README.md, 服务器状态: ${res.status}`);
+        }
+        return res.text();
+    }).then(text => {
         mdInput.value = text;
         markdownText = text;
-    }).catch(console.warn);
+    }).catch(err => {
+        console.warn(err); // 在控制台打印错误信息
+        mdInput.placeholder = "无法加载 README.md。请确保文件存在，或直接粘贴内容/上传文件。";
+    });
 
     mdUpload.addEventListener('change', async (event) => {
         const file = event.target.files[0];
@@ -36,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
         generateDocx(markdownText);
     });
 
-    // --- 新增：字体下载按钮点击事件 ---
     downloadFontsBtn.addEventListener('click', () => {
         const fontZipUrl = 'https://github.com/AngelSnow1129/md2docx/releases/download/V1.0.0/default.zip';
         // https://github.com/AngelSnow1129/md2docx/releases/latest
@@ -44,10 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`正在尝试从以下地址下载字体包: ${fontZipUrl}`);
     });
 
-
     function generateDocx(mdText) {
         const enableAutoNumbering = autoNumberingCheckbox.checked;
-
         const STYLES = {
             title: { font: "方正小标宋简体", size: 44, bold: true },
             docNumber: { font: "楷体_GB2312", size: 32 },
@@ -59,9 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const LINE_SPACING = 28 * 20;
 
-        const tokens = marked.lexer(mdText);
+        let tokens = marked.lexer(mdText);
         let docChildren = [];
         let counters = [0, 0, 0];
+
+        // --- 修正：移除所有关于落款和日期的特殊处理逻辑 ---
 
         const createMixedFontRuns = (text, style) => {
             const runs = [];
@@ -103,32 +110,31 @@ document.addEventListener('DOMContentLoaded', () => {
                         style = STYLES.h1;
                         if (enableAutoNumbering) {
                             counters[0]++; counters[1] = 0; counters[2] = 0;
-                            if (!/^第?[一二三四五六七八九十]+[、章]/.test(text)) {
-                                text = `第${chineseNumerals[counters[0]-1]}章 ${token.text}`;
-                            }
+                            if (!/^第?[一二三四五六七八九十]+[、章]/.test(text)) text = `第${chineseNumerals[counters[0]-1]}章 ${token.text}`;
                         }
                     } else if (token.depth === 3) { // ### -> (一)
                         style = STYLES.h2;
                         if (enableAutoNumbering) {
                             counters[1]++; counters[2] = 0;
-                            if (!/^[（(][一二三四五六七八九十]+[)）]/.test(text)) {
-                                text = `（${chineseNumerals[counters[1]-1]}）${token.text}`;
-                            }
+                            if (!/^[（(][一二三四五六七八九十]+[)）]/.test(text)) text = `（${chineseNumerals[counters[1]-1]}）${token.text}`;
                         }
-                    } else if (token.depth === 4) { // #### -> 1.
+                    } else if (token.depth === 4) {
                         style = STYLES.h3;
                         if (enableAutoNumbering) {
                            counters[2]++;
-                           if (!/^\d+\./.test(text)) {
-                               text = `${counters[2]}. ${token.text}`;
-                           }
+                           if (!/^\d+\./.test(text)) text = `${counters[2]}. ${token.text}`;
                         }
                     } else { return; }
                     
                     para = new Paragraph({ children: createMixedFontRuns(text, style), spacing: { before: 240, after: 240, line: LINE_SPACING, lineRule: LineRuleType.EXACT } });
                     break;
                 case 'paragraph':
-                    para = new Paragraph({ children: createMixedFontRuns(token.text, STYLES.body), spacing: { line: LINE_SPACING, lineRule: LineRuleType.EXACT }, indent: { firstLine: convertMillimetersToTwip(10.5) } });
+                    para = new Paragraph({ 
+                        alignment: AlignmentType.JUSTIFIED,
+                        children: createMixedFontRuns(token.text, STYLES.body), 
+                        spacing: { line: LINE_SPACING, lineRule: LineRuleType.EXACT }, 
+                        indent: { firstLine: convertMillimetersToTwip(10.5) }
+                    });
                     break;
                 default: return;
             }
@@ -141,12 +147,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 children: docChildren,
             }],
         });
-
-        // --- 恢复：文件名时间戳功能 ---
+        
         const now = new Date();
         const pad = (n) => n.toString().padStart(2, '0');
         const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}_`;
-
+        
         Packer.toBlob(doc).then(blob => {
             saveAs(blob, `${timestamp}_公文格式文档.docx`);
         }).catch(err => console.error("生成文档失败:", err));
