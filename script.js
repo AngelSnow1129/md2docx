@@ -1,83 +1,149 @@
-const { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } = docx;
-
-const fileInput = document.getElementById("mdFile");
-const preview = document.getElementById("preview");
-const convertBtn = document.getElementById("convertBtn");
-
-let mdText = "";
-
-// 上传文件事件
-fileInput.addEventListener("change", () => {
-    if (fileInput.files.length > 0) {
-        const file = fileInput.files[0];
-        file.text().then(text => {
-            mdText = text;
-            preview.textContent = mdText;
-        });
+document.addEventListener('DOMContentLoaded', () => {
+    if (typeof docx === 'undefined' || typeof marked === 'undefined' || typeof saveAs === 'undefined') {
+        alert("错误：依赖库未能成功加载，请检查网络或文件路径。");
+        return;
     }
-});
 
-function numToChinese(num) {
-    const c = "一二三四五六七八九十";
-    return num <= 10 ? c[num - 1] : num.toString();
-}
+    const { Document, Packer, Paragraph, TextRun, AlignmentType, convertMillimetersToTwip, LineRuleType } = docx;
 
-convertBtn.addEventListener("click", async () => {
-    if (!mdText) { alert("请先上传 Markdown 文件"); return; }
+    const mdInput = document.getElementById('md-input');
+    const convertBtn = document.getElementById('convert-btn');
+    const mdUpload = document.getElementById('md-upload');
+    let markdownText = "";
 
-    const lines = mdText.split("\n");
-    const lineSpacing = parseFloat(document.getElementById("lineSpacing").value) || 28;
-    const titleSize = parseInt(document.getElementById("titleSize").value) || 32;
-    const bodySize = parseInt(document.getElementById("bodySize").value) || 32;
+    fetch('sample.md').then(res => res.ok ? res.text() : "").then(text => {
+        mdInput.value = text;
+        markdownText = text;
+    }).catch(console.warn);
 
-    const doc = new Document({
-        sections: [{
-            properties: {
-                page: { margin: { top: 37*2.835, bottom: 35*2.835, left: 28*2.835, right: 22*2.835 } }
-            },
-            children: []
-        }]
+    mdUpload.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            markdownText = await file.text();
+            mdInput.value = markdownText;
+        }
     });
+    
+    mdInput.addEventListener('input', () => markdownText = mdInput.value);
 
-    let level1=0, level2=0, level3=0, level4=0, signature=null;
-
-    lines.forEach(line => {
-        line = line.trim();
-        if (!line) return;
-
-        if (line.startsWith("落款:") || line.startsWith("落款：")) {
-            signature = line.split(/[:：]/)[1].trim();
+    convertBtn.addEventListener('click', () => {
+        if (!markdownText.trim()) {
+            alert('内容为空，请输入或上传 Markdown 文件！');
             return;
         }
-
-        let paraText = line;
-        let paraProps = { spacing: { line: lineSpacing*20 }, alignment: AlignmentType.LEFT };
-        let fontSize = bodySize;
-        let fontName = "仿宋";
-
-        if (line.startsWith("# ")) { level1++; level2=level3=level4=0; paraText=`${numToChinese(level1)}、${line.slice(2)}`; paraProps.heading=HeadingLevel.HEADING_1; fontSize=titleSize; }
-        else if (line.startsWith("## ")) { level2++; level3=level4=0; paraText=`（${String.fromCharCode(0x2460+level2-1)}）${line.slice(3)}`; paraProps.heading=HeadingLevel.HEADING_2; fontSize=titleSize; }
-        else if (line.startsWith("### ")) { level3++; level4=0; paraText=`${level3}. ${line.slice(4)}`; paraProps.heading=HeadingLevel.HEADING_3; fontSize=titleSize; }
-        else if (line.startsWith("#### ")) { level4++; paraText=`（${level4}）${line.slice(5)}`; fontSize=titleSize; }
-
-        const run = new TextRun({ text: paraText, font: fontName, size: fontSize });
-        run.text = run.text.replace(/[A-Za-z0-9]+/g, match => match); // 英文数字 Times New Roman
-
-        const para = new Paragraph({ ...paraProps, children: [run] });
-        doc.sections[0].children.push(para);
+        generateDocx(markdownText);
     });
 
-    if (signature) {
-        doc.sections[0].children.push(new Paragraph({ text:"", spacing:{line: lineSpacing*20} }));
-        doc.sections[0].children.push(new Paragraph({ text:"", spacing:{line: lineSpacing*20} }));
-        const sigRun = new TextRun({ text: signature, font:"仿宋", size: bodySize });
-        const sigPara = new Paragraph({ text: signature, alignment: AlignmentType.RIGHT, spacing: { line: lineSpacing*20 }, children: [sigRun] });
-        doc.sections[0].children.push(sigPara);
-    }
+    function generateDocx(mdText) {
+        const STYLES = {
+            title: { font: "方正小标宋简体", size: 44, bold: true },
+            docNumber: { font: "楷体_GB2312", size: 32 },
+            body: { font: "仿宋_GB2312", size: 32 },
+            h1: { font: "黑体_GB2312", size: 32 },
+            h2: { font: "楷体_GB2312", size: 32 },
+            h3: { font: "仿宋_GB2312", size: 32, bold: true },
+            times: { font: "Times New Roman", size: 32 }
+        };
+        const LINE_SPACING = 28 * 20;
 
-    const blob = await Packer.toBlob(doc);
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "output.docx";
-    link.click();
+        const tokens = marked.lexer(mdText);
+        let docChildren = [];
+        let counters = [0, 0, 0];
+
+        const createMixedFontRuns = (text, style) => {
+            const runs = [];
+            const regex = /([a-zA-Z0-9\s.,-]+)/g;
+            const parts = text.split(regex).filter(p => p);
+            for (const part of parts) {
+                const isLatin = regex.test(part);
+                const currentStyle = isLatin ? STYLES.times : style;
+                runs.push(new TextRun({
+                    text: part,
+                    font: currentStyle.font,
+                    size: currentStyle.size,
+                    bold: style.bold || false,
+                }));
+            }
+            return runs;
+        };
+        
+        // Main Title
+        const titleToken = tokens.find(t => t.type === 'heading' && t.depth === 1);
+        if (titleToken) {
+            docChildren.push(new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: createMixedFontRuns(titleToken.text, STYLES.title),
+                spacing: { after: 400 }
+            }));
+            tokens.splice(tokens.indexOf(titleToken), 1);
+        }
+
+        // Document Number
+        const docNumToken = tokens.find(t => t.type === 'paragraph');
+        if (docNumToken) {
+             docChildren.push(new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: createMixedFontRuns(docNumToken.text, STYLES.docNumber),
+                spacing: { after: 600 }
+            }));
+            tokens.splice(tokens.indexOf(docNumToken), 1);
+        }
+
+        // Process rest of the tokens
+        tokens.forEach(token => {
+            let para;
+            switch (token.type) {
+                case 'heading':
+                    let text, style;
+                    if (token.depth === 2) { // ## -> 一、
+                        counters[0]++; counters[1] = 0; counters[2] = 0;
+                        text = `第${"一二三四五六七八九十"[counters[0]-1]}章 ${token.text}`;
+                        style = STYLES.h1;
+                    } else if (token.depth === 3) { // ### -> (一)
+                        counters[1]++; counters[2] = 0;
+                        text = `（${"一二三四五六七八九十"[counters[1]-1]}）${token.text}`;
+                        style = STYLES.h2;
+                    } else if (token.depth === 4) { // #### -> 1.
+                        counters[2]++;
+                        text = `${counters[2]}. ${token.text}`;
+                        style = STYLES.h3;
+                    } else { return; }
+                    
+                    para = new Paragraph({
+                        children: createMixedFontRuns(text, style),
+                        spacing: { before: 240, after: 240, line: LINE_SPACING, lineRule: LineRuleType.EXACT },
+                    });
+                    break;
+                case 'paragraph':
+                    para = new Paragraph({
+                        children: createMixedFontRuns(token.text, STYLES.body),
+                        spacing: { line: LINE_SPACING, lineRule: LineRuleType.EXACT },
+                        indent: { firstLine: convertMillimetersToTwip(10.5) }
+                    });
+                    break;
+                default: return;
+            }
+            docChildren.push(para);
+        });
+
+        const doc = new Document({
+            sections: [{
+                properties: {
+                    page: {
+                        margin: {
+                            top: convertMillimetersToTwip(37),
+                            bottom: convertMillimetersToTwip(35),
+                            left: convertMillimetersToTwip(28),
+                            right: convertMillimetersToTwip(26),
+                        },
+                    },
+                },
+                children: docChildren,
+            }],
+        });
+
+        Packer.toBlob(doc).then(blob => {
+            saveAs(blob, "公文格式文档.docx");
+        }).catch(err => console.error("生成文档失败:", err));
+    }
 });

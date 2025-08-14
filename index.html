@@ -2,37 +2,43 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Markdown 转 Word 公文</title>
+    <title>Markdown 转公文 Word</title>
     <style>
-        #preview {
-            border: 1px solid #ddd;
-            padding: 10px;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            margin-top: 10px;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.8; padding: 20px; max-width: 900px; margin: 0 auto; background-color: #f9f9f9; color: #333; }
+        .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        h1 { text-align: center; color: #0056b3; margin-bottom: 25px; }
+        textarea { width: 100%; box-sizing: border-box; height: 450px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; padding: 12px; font-size: 14px; resize: vertical; }
+        .controls { display: flex; justify-content: center; align-items: center; gap: 20px; }
+        input[type="file"] { border: 1px solid #ccc; padding: 8px; border-radius: 4px; }
+        button { background-color: #007bff; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; transition: background-color 0.2s, transform 0.2s; }
+        button:hover { background-color: #0056b3; transform: translateY(-2px); }
+        .info { background-color: #e9f5ff; padding: 15px; border-left: 5px solid #007bff; border-radius: 5px; font-size: 14px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
-<h2>Markdown 转 Word 公文在线工具</h2>
+<div class="container">
+    <h1>Markdown 转为国家公文格式 Word</h1>
+    <div class="info">
+        <b>使用约定:</b>
+        <ul style="padding-left: 20px; margin-top: 5px;">
+            <li><b>公文大标题:</b> 使用 <code># </code> (H1)。</li>
+            <li><b>文号:</b> 紧跟在公文大标题后的第一个段落。</li>
+            <li><b>一级标题 (一、):</b> 使用 <code>## </code> (H2)。</li>
+            <li><b>二级标题 (（一）):</b> 使用 <code>### </code> (H3)。</li>
+            <li><b>三级标题 (1.):</b> 使用 <code>#### </code> (H4)。</li>
+            <li><b>落款和日期:</b> 放在文档末尾，会被自动识别。</li>
+        </ul>
+    </div>
+    <textarea id="md-input" placeholder="在此粘贴 Markdown 或点击下方按钮上传..."></textarea>
+    <div class="controls">
+        <input type="file" id="md-upload" accept=".md,.markdown,.txt">
+        <button id="convert-btn">生成并下载 Word</button>
+    </div>
+</div>
 
-<!-- 上传按钮 -->
-<input type="file" id="mdFile" accept=".md">
-<br><br>
-
-<label>正文行距（磅）：<input type="number" id="lineSpacing" value="28"></label>
-<label>标题字号（半点）：<input type="number" id="titleSize" value="32"></label>
-<label>正文字号（半点）：<input type="number" id="bodySize" value="32"></label>
-<br><br>
-
-<button id="convertBtn">转换并下载 Word</button>
-
-<h3>预览：</h3>
-<div id="preview"></div>
-
-<!-- 引入 docx.min.js（请放在同目录） -->
-<script src="docx.min.js"></script>
+<script src="js/marked.min.js"></script>
+<script src="js/docx.js"></script>
+<script src="js/filesaver.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
