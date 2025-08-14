@@ -115,28 +115,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     break;
 
-                // "扁平化"处理逻辑保持不变
+                // 正确处理多行文本（如表格、代码块、引用）
                 case 'paragraph':
                 case 'list':
                 case 'blockquote':
                 case 'code':
+                case 'table': // Explicitly handle tables
                 case 'hr':
-                    const plainText = token.text || (token.tokens ? token.tokens.map(t => t.text).join(' ') : '');
-                    if (plainText.trim()) {
-                        paragraph = new Paragraph({
-                            children: [new TextRun({ text: plainText, font: FONT_FANGSONG_GB2312, size: SIZE_BODY })],
-                            alignment: AlignmentType.JUSTIFIED,
-                            indent: { firstLine: 640 }, // 32pt = 640 twips
-                            spacing: { line: 28 * 20, lineRule: LineRuleType.EXACT },
+                    // For any non-heading content, we get its raw text, which preserves line breaks.
+                    const rawText = token.raw || '';
+                    if (rawText.trim()) {
+                        // Split the raw text into individual lines.
+                        const lines = rawText.split('\n');
+                        // Create a new paragraph for each line to ensure formatting is correct.
+                        lines.forEach(line => {
+                            const lineParagraph = new Paragraph({
+                                children: [new TextRun({ text: line, font: FONT_FANGSONG_GB2312, size: SIZE_BODY })],
+                                alignment: AlignmentType.JUSTIFIED,
+                                indent: { firstLine: 640 }, // 2-character indent
+                                spacing: { line: 28 * 20, lineRule: LineRuleType.EXACT },
+                            });
+                            docChildren.push(lineParagraph);
                         });
                     }
+                    // Set paragraph to null because we've already added children to the doc.
+                    paragraph = null; 
                     break;
 
                 default:
+                    // Any other unhandled token types will be ignored.
                     paragraph = null;
                     break;
             }
 
+            // This will now only handle heading paragraphs, as others are pushed directly.
             if (paragraph) {
                 docChildren.push(paragraph);
             }
