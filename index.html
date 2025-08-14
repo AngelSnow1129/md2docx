@@ -4,35 +4,48 @@
     <meta charset="UTF-8">
     <title>Markdown 转公文 Word</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.6; padding: 20px; max-width: 900px; margin: 0 auto; background-color: #f8f9fa; color: #333; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.8; padding: 20px; max-width: 900px; margin: 0 auto; background-color: #f9f9f9; color: #333; }
         .container { background-color: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        h1 { text-align: center; color: #333; margin-bottom: 25px; font-weight: 600; }
-        textarea { width: 100%; box-sizing: border-box; height: 450px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; padding: 15px; font-size: 15px; resize: vertical; }
-        .controls { display: flex; justify-content: flex-end; align-items: center; }
+        h1 { text-align: center; color: #0056b3; margin-bottom: 25px; }
+        textarea { width: 100%; box-sizing: border-box; height: 450px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 6px; padding: 12px; font-size: 14px; resize: vertical; }
+        .controls { display: flex; justify-content: space-between; align-items: center; }
+        .options-left { display: flex; align-items: center; gap: 15px; }
+        .options-right { display: flex; align-items: center; gap: 10px; } /* 新增 */
+        label { user-select: none; }
         button { background-color: #007bff; color: white; border: none; padding: 12px 25px; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; transition: background-color 0.2s, transform 0.2s; }
         button:hover { background-color: #0056b3; transform: translateY(-2px); }
-        .info { background-color: #e9f5ff; padding: 15px; border-left: 5px solid #007bff; border-radius: 5px; font-size: 14px; margin-bottom: 25px; }
-        .info ul { padding-left: 20px; margin: 5px 0 0 0; }
-        .info code { background-color: #dceaf5; padding: 2px 5px; border-radius: 4px; font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace; }
+        /* 新增字体下载按钮样式 */
+        #download-fonts-btn { background-color: #28a745; }
+        #download-fonts-btn:hover { background-color: #218838; }
+        .info { background-color: #e9f5ff; padding: 15px; border-left: 5px solid #007bff; border-radius: 5px; font-size: 14px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Markdown 转国家公文格式 Word</h1>
+    <h1>Markdown 转为国家公文格式 Word</h1>
     <div class="info">
-        <b>格式约定:</b>
+        <b>使用约定:</b>
         <ul style="padding-left: 20px; margin-top: 5px;">
-            <li><b>主标题:</b> <code># 标题</code> (H1)</li>
-            <li><b>一级标题:</b> <code>## 标题</code> (H2)，将自动编号为“一、”</li>
-            <li><b>二级标题:</b> <code>### 标题</code> (H3)，将自动编号为“（一）”</li>
-            <li><b>三级标题:</b> <code>#### 标题</code> (H4)，将自动编号为“1.”</li>
-            <li><b>四级标题:</b> <code>##### 标题</code> (H5)，将自动编号为“（1）”</li>
-            <li><b>正文:</b> 除上述标题外，<b>所有其他内容</b> (普通段落、列表、引用等) 将被统一处理为标准正文段落。</li>
+            <li><b>公文大标题:</b> 使用 <code># </code> (H1)。</li>
+            <li><b>一级标题 (如 一、):</b> 使用 <code>## </code> (H2)。</li>
+            <li><b>二级标题 (如 （一）):</b> 使用 <code>### </code> (H3)。</li>
+            <li><b>三级标题 (如 1.):</b> 使用 <code>#### </code> (H4)。</li>
+            <li><b>新功能:</b> 您可以通过下方的复选框控制是否需要程序自动添加标题编号。</li>
         </ul>
     </div>
-    <textarea id="md-input" placeholder="在此处粘贴 Markdown 文本..."></textarea>
+    <textarea id="md-input" placeholder="在此粘贴 Markdown 或点击下方按钮上传..."></textarea>
     <div class="controls">
-        <button id="convert-btn">生成并下载 Word</button>
+        <div class="options-left">
+             <input type="file" id="md-upload" accept=".md,.markdown,.txt">
+             <label for="auto-numbering">
+                <input type="checkbox" id="auto-numbering" checked>
+                自动标题编号
+            </label>
+        </div>
+        <div class="options-right">
+            <button id="download-fonts-btn">下载公文字体</button>
+            <button id="convert-btn">生成并下载 Word</button>
+        </div>
     </div>
 </div>
 
